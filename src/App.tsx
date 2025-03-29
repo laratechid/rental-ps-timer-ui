@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import moment from 'moment';
+// import "./App.css"
 
 type Unit = '41' | '42' | '31' | '32' | '33';
 
@@ -363,7 +364,7 @@ const PlayStationRentalTimer: React.FC = () => {
         grandTotal: timer.currentPrice
       };
 
-      const response = await fetch('http://localhost:8900/rent/calculate', {
+      const response = await fetch('http://localhost:8900/rent/store', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -406,17 +407,17 @@ const PlayStationRentalTimer: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 m-0">
-      <h1 className="text-2xl font-bold text-center mb-6">PlayStation Rental Timers</h1>
+    <div className="min-h-screen p-4 m-0">
+      <h1 className="text-2xl font-bold text-center mb-6">TIMER LTS GAME</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {(Object.keys(timers) as Unit[]).map((unit) => (
           <div key={unit} className="bg-white rounded-xl shadow-md overflow-hidden p-6">
-            <h2 className="text-xl font-bold text-center mb-4">Unit {unit}</h2>
+            <h2 className="text-6xl font-bold text-center text-slate-500 mb-1">{unit}</h2>
             
             <div className="mb-4 text-center">
-              <div className="text-3xl font-bold mb-2">{timers[unit].displayTime}</div>
-              <div className="text-xl font-semibold text-green-600">
+              <div className="text-xl font-bold mb-2 text-slate-500">{timers[unit].displayTime}</div>
+              <div className="text-5xl font-semibold text-green-600">
                 Rp {timers[unit].currentPrice.toLocaleString('id-ID')}
               </div>
             </div>
@@ -425,7 +426,7 @@ const PlayStationRentalTimer: React.FC = () => {
               {!timers[unit].isRunning ? (
                 <button
                   onClick={() => startTimer(unit)}
-                  className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md font-medium text-sm"
+                  className="bg-green-500 hover:bg-green-600 py-1 px-2 text-white rounded-md"
                 >
                   Mulai
                 </button>
@@ -434,21 +435,21 @@ const PlayStationRentalTimer: React.FC = () => {
                   {!timers[unit].isPaused ? (
                     <button
                       onClick={() => pauseTimer(unit)}
-                      className="bg-yellow-500 hover:bg-yellow-600 text-white py-2 px-4 rounded-md font-medium text-sm"
+                      className="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-2 rounded-md"
                     >
                       Jeda
                     </button>
                   ) : (
                     <button
                       onClick={() => startTimer(unit)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md font-medium text-sm"
+                      className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded-md"
                     >
                       Lanjutkan
                     </button>
                   )}
                   <button
                     onClick={() => finishTimer(unit)}
-                    className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md font-medium text-sm"
+                    className="bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded-md"
                   >
                     Selesai
                   </button>
