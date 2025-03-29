@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import moment from 'moment';
-// import "./App.css"
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 type Unit = '41' | '42' | '31' | '32' | '33';
 
@@ -12,13 +13,17 @@ interface PriceTier {
 
 interface TimerState {
   isRunning: boolean;
-  isPaused: boolean;
   startTime: moment.Moment | null;
-  pausedTime: moment.Moment | null;
-  totalPausedDuration: number;
+  endTime: moment.Moment | null;
   displayTime: string;
   currentPrice: number;
+  isCountdown: boolean;
+  durationHours?: number;
+  selectedDuration?: number;
+  note: string;
 }
+
+const beepSound = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
 
 const PRICE_TIERS: Record<Unit, PriceTier[]> = {
   '41': [
@@ -197,12 +202,12 @@ const PlayStationRentalTimer: React.FC = () => {
   const [timers, setTimers] = useState<Record<Unit, TimerState>>(() => {
     const initialTimerState: TimerState = {
       isRunning: false,
-      isPaused: false,
       startTime: null,
-      pausedTime: null,
-      totalPausedDuration: 0,
+      endTime: null,
       displayTime: '0 jam 0 mnt 0 dtk',
       currentPrice: 0,
+      isCountdown: false,
+      note: '',
     };
     
     return {
@@ -222,10 +227,12 @@ const PlayStationRentalTimer: React.FC = () => {
     '33': null,
   });
 
+  const notificationIdRef = useRef(0);
+
   const calculatePrice = (unit: Unit, hours: number, minutes: number): number => {
     const tiers = PRICE_TIERS[unit];
+    if (!tiers || tiers.length === 0) return 0;
     
-    // Find the first tier where time is >= tier time
     for (let i = tiers.length - 1; i >= 0; i--) {
       const tier = tiers[i];
       if (hours > tier.hours || (hours === tier.hours && minutes >= tier.minutes)) {
@@ -233,137 +240,170 @@ const PlayStationRentalTimer: React.FC = () => {
       }
     }
     
-    // Default to first tier price
     return tiers[0].price;
   };
 
+  const getPriceForDuration = (unit: Unit, durationHours: number): number => {
+    return calculatePrice(unit, durationHours, 0);
+  };
+
   const updateTimer = (unit: Unit) => {
-    try {
-      setTimers(prev => {
-        const timer = prev[unit];
-        if (!timer.startTime) return prev;
+    setTimers(prev => {
+      const timer = prev[unit];
+      if (!timer.startTime) return prev;
 
+      let hours, minutes, seconds;
+      
+      if (timer.isCountdown && timer.endTime) {
         const now = moment();
-        let elapsedMilliseconds = now.diff(timer.startTime);
+        let remaining = moment.duration(timer.endTime.diff(now));
 
-        if (timer.totalPausedDuration > 0) {
-          elapsedMilliseconds -= timer.totalPausedDuration;
-        }
-
-        if (timer.isPaused && timer.pausedTime) {
-          elapsedMilliseconds = timer.pausedTime.diff(timer.startTime) - timer.totalPausedDuration;
-        }
-
-        const duration = moment.duration(elapsedMilliseconds);
-        const hours = Math.floor(duration.asHours());
-        const minutes = duration.minutes();
-        const seconds = duration.seconds();
-
-        return {
-          ...prev,
-          [unit]: {
-            ...timer,
-            displayTime: `${hours} jam ${minutes} mnt ${seconds} dtk`,
-            currentPrice: calculatePrice(unit, hours, minutes),
-          },
-        };
-      });
-    } catch (error) {
-      console.error(`Error updating timer for unit ${unit}:`, error);
-    }
-  };
-
-  const startTimer = (unit: Unit) => {
-    try {
-      setTimers(prev => {
-        const timer = prev[unit];
-        
-        // Bersihkan interval sebelumnya jika ada
-        if (intervalRefs.current[unit]) {
-          window.clearInterval(intervalRefs.current[unit]!);
-          intervalRefs.current[unit] = null;
-        }
-
-        // Set interval baru
-        intervalRefs.current[unit] = window.setInterval(() => updateTimer(unit), 1000);
-
-        if (timer.isPaused) {
-          // Resume dari pause
-          const now = moment();
-          const pauseDuration = now.diff(timer.pausedTime!);
+        if (remaining.asMilliseconds() <= 0) {
+          if (intervalRefs.current[unit]) {
+            window.clearInterval(intervalRefs.current[unit]!);
+            intervalRefs.current[unit] = null;
+          }
           
-          return {
-            ...prev,
-            [unit]: {
-              ...timer,
-              isRunning: true,
-              isPaused: false,
-              pausedTime: null,
-              totalPausedDuration: timer.totalPausedDuration + pauseDuration,
-            },
-          };
+          if (timer.isRunning && timer.durationHours) {
+            beepSound.play().catch(e => console.error('Error playing sound:', e));
+            
+            const notificationId = notificationIdRef.current++;
+            const price = getPriceForDuration(unit, timer.durationHours);
+            
+            toast.info(
+              <div>
+                {unit} - {timer.durationHours} jam (Rp {price.toLocaleString('id-ID')})
+                <button 
+                  onClick={() => toast.dismiss(notificationId)}
+                  className="ml-2 text-white"
+                >
+                  ×
+                </button>
+              </div>, 
+              {
+                toastId: notificationId,
+                closeButton: false,
+                autoClose: false,
+              }
+            );
+          }
+
+          remaining = moment.duration(0);
+          hours = 0;
+          minutes = 0;
+          seconds = 0;
         } else {
-          // Mulai baru
-          return {
-            ...prev,
-            [unit]: {
-              ...timer,
-              isRunning: true,
-              startTime: moment(),
-              totalPausedDuration: 0,
-            },
-          };
+          hours = Math.floor(remaining.asHours());
+          minutes = remaining.minutes();
+          seconds = remaining.seconds();
         }
-      });
-    } catch (error) {
-      console.error(`Error starting timer for unit ${unit}:`, error);
-    }
+      } else {
+        const now = moment();
+        const elapsedMilliseconds = now.diff(timer.startTime);
+        const duration = moment.duration(elapsedMilliseconds);
+        hours = Math.floor(duration.asHours());
+        minutes = duration.minutes();
+        seconds = duration.seconds();
+      }
+
+      return {
+        ...prev,
+        [unit]: {
+          ...timer,
+          displayTime: `${hours} jam ${minutes} mnt ${seconds} dtk`,
+          currentPrice: timer.isCountdown && timer.durationHours 
+            ? getPriceForDuration(unit, timer.durationHours)
+            : calculatePrice(unit, hours, minutes),
+          isRunning: hours > 0 || minutes > 0 || seconds > 0,
+        },
+      };
+    });
   };
 
-  const pauseTimer = (unit: Unit) => {
-    try {
-      setTimers(prev => {
-        const timer = prev[unit];
-        if (!timer.isRunning || timer.isPaused) return prev;
-
-        // Bersihkan interval
-        if (intervalRefs.current[unit]) {
-          window.clearInterval(intervalRefs.current[unit]!);
-          intervalRefs.current[unit] = null;
-        }
-
-        return {
-          ...prev,
-          [unit]: {
-            ...timer,
-            isPaused: true,
-            pausedTime: moment(),
-          },
-        };
-      });
-    } catch (error) {
-      console.error(`Error pausing timer for unit ${unit}:`, error);
-    }
-  };
-
-  const finishTimer = async (unit: Unit) => {
-    try {
-      const timer = timers[unit];
-      if (!timer.isRunning) return;
-
-      // Bersihkan interval
+  const startCountdown = (unit: Unit, hours: number) => {
+    setTimers(prev => {
       if (intervalRefs.current[unit]) {
         window.clearInterval(intervalRefs.current[unit]!);
         intervalRefs.current[unit] = null;
       }
 
-      // Kirim data ke server
-      const payload = {
-        unit,
-        playFor: timer.displayTime,
-        grandTotal: timer.currentPrice
-      };
+      const startTime = moment();
+      const endTime = moment(startTime).add(hours, 'hours');
+      const price = getPriceForDuration(unit, hours);
 
+      intervalRefs.current[unit] = window.setInterval(() => updateTimer(unit), 1000);
+
+      return {
+        ...prev,
+        [unit]: {
+          ...prev[unit],
+          isRunning: true,
+          isCountdown: true,
+          startTime,
+          endTime,
+          durationHours: hours,
+          selectedDuration: hours,
+          currentPrice: price,
+          displayTime: `${hours} jam 0 mnt 0 dtk`,
+          note: prev[unit].note // Preserve existing note
+        },
+      };
+    });
+  };
+
+  const startStopwatch = (unit: Unit) => {
+    setTimers(prev => {
+      if (intervalRefs.current[unit]) {
+        window.clearInterval(intervalRefs.current[unit]!);
+        intervalRefs.current[unit] = null;
+      }
+
+      intervalRefs.current[unit] = window.setInterval(() => updateTimer(unit), 1000);
+
+      return {
+        ...prev,
+        [unit]: {
+          ...prev[unit],
+          isRunning: true,
+          isCountdown: false,
+          startTime: moment(),
+          endTime: null,
+          currentPrice: 0,
+          displayTime: '0 jam 0 mnt 0 dtk',
+          selectedDuration: undefined,
+          note: prev[unit].note // Preserve existing note
+        },
+      };
+    });
+  };
+
+  const handleNoteChange = (unit: Unit, value: string) => {
+    setTimers(prev => ({
+      ...prev,
+      [unit]: {
+        ...prev[unit],
+        note: value
+      }
+    }));
+  };
+
+  const finishTimer = async (unit: Unit) => {
+    const timer = timers[unit];
+    if (!timer.isRunning) return;
+
+    if (intervalRefs.current[unit]) {
+      window.clearInterval(intervalRefs.current[unit]!);
+      intervalRefs.current[unit] = null;
+    }
+
+    const payload = {
+      unit,
+      playFor: timer.displayTime,
+      grandTotal: timer.currentPrice,
+      note: timer.note
+    };
+
+    try {
       const response = await fetch('http://localhost:8900/rent/store', {
         method: 'POST',
         headers: {
@@ -376,17 +416,17 @@ const PlayStationRentalTimer: React.FC = () => {
         throw new Error('Network response was not ok');
       }
 
-      // Reset timer
       setTimers(prev => ({
         ...prev,
         [unit]: {
           isRunning: false,
-          isPaused: false,
           startTime: null,
-          pausedTime: null,
-          totalPausedDuration: 0,
+          endTime: null,
           displayTime: '0 jam 0 mnt 0 dtk',
           currentPrice: 0,
+          isCountdown: false,
+          selectedDuration: undefined,
+          note: '' // Reset note to empty
         },
       }));
     } catch (error) {
@@ -396,7 +436,6 @@ const PlayStationRentalTimer: React.FC = () => {
 
   useEffect(() => {
     return () => {
-      // Cleanup semua interval saat komponen unmount
       Object.entries(intervalRefs.current).forEach(([unit, interval]) => {
         if (interval) {
           window.clearInterval(interval);
@@ -408,6 +447,15 @@ const PlayStationRentalTimer: React.FC = () => {
 
   return (
     <div className="min-h-screen p-4 m-0">
+      <ToastContainer 
+        position="top-right"
+        newestOnTop={true}
+        closeOnClick={false}
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+      />
+      
       <h1 className="text-2xl font-bold text-center mb-6">TIMER LTS GAME</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -422,38 +470,51 @@ const PlayStationRentalTimer: React.FC = () => {
               </div>
             </div>
 
+            <div className="mb-4">
+              <input
+                type="text"
+                value={timers[unit].note}
+                onChange={(e) => handleNoteChange(unit, e.target.value)}
+                placeholder="notes.."
+                className="w-full px-2 border border-gray-300 bg-slate-300 rounded-md"
+                disabled={!timers[unit].isRunning}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {[1, 2, 3, 6].map((hours) => (
+                <button
+                  key={hours}
+                  onClick={() => startCountdown(unit, hours)}
+                  className={`py-1 rounded-md text-sm ${
+                    timers[unit].selectedDuration === hours
+                      ? 'bg-blue-600 text-white'
+                      : timers[unit].isRunning
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-amber-600 hover:bg-purple-600 text-white'
+                  }`}
+                  disabled={timers[unit].isRunning}
+                >
+                  {hours} Jam
+                </button>
+              ))}
+            </div>
+
             <div className="flex justify-center space-x-2">
               {!timers[unit].isRunning ? (
                 <button
-                  onClick={() => startTimer(unit)}
-                  className="bg-green-500 hover:bg-green-600 py-1 px-2 text-white rounded-md"
+                  onClick={() => startStopwatch(unit)}
+                  className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md"
                 >
-                  Mulai
+                  Start
                 </button>
               ) : (
-                <>
-                  {!timers[unit].isPaused ? (
-                    <button
-                      onClick={() => pauseTimer(unit)}
-                      className="bg-yellow-500 hover:bg-yellow-600 text-white py-1 px-2 rounded-md"
-                    >
-                      Jeda
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => startTimer(unit)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-2 rounded-md"
-                    >
-                      Lanjutkan
-                    </button>
-                  )}
-                  <button
-                    onClick={() => finishTimer(unit)}
-                    className="bg-red-500 hover:bg-red-600 text-white py-1 px-2 rounded-md"
-                  >
-                    Selesai
-                  </button>
-                </>
+                <button
+                  onClick={() => finishTimer(unit)}
+                  className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md"
+                >
+                  Selesai
+                </button>
               )}
             </div>
           </div>
