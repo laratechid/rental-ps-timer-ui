@@ -524,16 +524,16 @@ const PlayStationRentalTimer: React.FC = () => {
               {!timers[unit].isRunning ? (
                 <button
                   onClick={() => startStopwatch(unit)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 rounded-md"
+                  className="bg-gray-300 hover:bg-gray-400 px-2 rounded-md"
                 >
-                  Open
+                  <p className='text-gray-500 text-sm px-3'>Open</p>
                 </button>
               ) : (
                 <button
                   onClick={() => finishTimer(unit)}
-                  className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md"
+                  className="bg-red-500 hover:bg-red-600 px-3 rounded-md"
                 >
-                  Selesai
+                  <p className='text-white text-sm px-3'>Selesai</p>
                 </button>
               )}
             </div>
