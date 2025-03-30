@@ -21,6 +21,7 @@ interface TimerState {
   durationHours?: number;
   selectedDuration?: number;
   note: string;
+  fixedDuration?: string; // New field for fixed duration text
 }
 
 const beepSound = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
@@ -208,6 +209,7 @@ const PlayStationRentalTimer: React.FC = () => {
       currentPrice: 0,
       isCountdown: false,
       note: '',
+      fixedDuration: '',
     };
     
     return {
@@ -272,7 +274,7 @@ const PlayStationRentalTimer: React.FC = () => {
             
             toast.info(
               <div>
-                {unit} - {timer.durationHours} jam (Rp {price.toLocaleString('id-ID')})
+                {unit} - {timer.fixedDuration} (Rp {price.toLocaleString('id-ID')})
                 <button 
                   onClick={() => toast.dismiss(notificationId)}
                   className="ml-2 text-white"
@@ -297,6 +299,16 @@ const PlayStationRentalTimer: React.FC = () => {
           minutes = remaining.minutes();
           seconds = remaining.seconds();
         }
+
+        return {
+          ...prev,
+          [unit]: {
+            ...timer,
+            displayTime: `${hours} jam ${minutes} mnt ${seconds} dtk`, // Show countdown
+            currentPrice: getPriceForDuration(unit, timer.durationHours || 0),
+            isRunning: true,
+          },
+        };
       } else {
         const now = moment();
         const elapsedMilliseconds = now.diff(timer.startTime);
@@ -304,19 +316,17 @@ const PlayStationRentalTimer: React.FC = () => {
         hours = Math.floor(duration.asHours());
         minutes = duration.minutes();
         seconds = duration.seconds();
-      }
 
-      return {
-        ...prev,
-        [unit]: {
-          ...timer,
-          displayTime: `${hours} jam ${minutes} mnt ${seconds} dtk`,
-          currentPrice: timer.isCountdown && timer.durationHours 
-            ? getPriceForDuration(unit, timer.durationHours)
-            : calculatePrice(unit, hours, minutes),
-          isRunning: hours > 0 || minutes > 0 || seconds > 0,
-        },
-      };
+        return {
+          ...prev,
+          [unit]: {
+            ...timer,
+            displayTime: `${hours} jam ${minutes} mnt ${seconds} dtk`,
+            currentPrice: calculatePrice(unit, hours, minutes),
+            isRunning: true,
+          },
+        };
+      }
     });
   };
 
@@ -330,6 +340,7 @@ const PlayStationRentalTimer: React.FC = () => {
       const startTime = moment();
       const endTime = moment(startTime).add(hours, 'hours');
       const price = getPriceForDuration(unit, hours);
+      const fixedDuration = `${hours} jam`;
 
       intervalRefs.current[unit] = window.setInterval(() => updateTimer(unit), 1000);
 
@@ -344,8 +355,9 @@ const PlayStationRentalTimer: React.FC = () => {
           durationHours: hours,
           selectedDuration: hours,
           currentPrice: price,
-          displayTime: `${hours} jam 0 mnt 0 dtk`,
-          note: prev[unit].note // Preserve existing note
+          displayTime: fixedDuration,
+          fixedDuration, // Store the fixed duration text
+          note: prev[unit].note
         },
       };
     });
@@ -371,7 +383,8 @@ const PlayStationRentalTimer: React.FC = () => {
           currentPrice: 0,
           displayTime: '0 jam 0 mnt 0 dtk',
           selectedDuration: undefined,
-          note: prev[unit].note // Preserve existing note
+          fixedDuration: '',
+          note: prev[unit].note
         },
       };
     });
@@ -396,9 +409,14 @@ const PlayStationRentalTimer: React.FC = () => {
       intervalRefs.current[unit] = null;
     }
 
+    // Use fixed duration for countdown, actual time for stopwatch
+    const playFor = timer.isCountdown 
+      ? timer.fixedDuration || `${timer.durationHours} jam`
+      : timer.displayTime;
+
     const payload = {
       unit,
-      playFor: timer.displayTime,
+      playFor,
       grandTotal: timer.currentPrice,
       note: timer.note
     };
@@ -426,7 +444,8 @@ const PlayStationRentalTimer: React.FC = () => {
           currentPrice: 0,
           isCountdown: false,
           selectedDuration: undefined,
-          note: '' // Reset note to empty
+          fixedDuration: '',
+          note: ''
         },
       }));
     } catch (error) {
@@ -465,7 +484,7 @@ const PlayStationRentalTimer: React.FC = () => {
             
             <div className="mb-4 text-center">
               <div className="text-xl font-bold mb-2 text-slate-500">{timers[unit].displayTime}</div>
-              <div className="text-5xl font-semibold text-green-600">
+              <div className="text-5xl font-semibold text-blue-500">
                 Rp {timers[unit].currentPrice.toLocaleString('id-ID')}
               </div>
             </div>
@@ -475,8 +494,8 @@ const PlayStationRentalTimer: React.FC = () => {
                 type="text"
                 value={timers[unit].note}
                 onChange={(e) => handleNoteChange(unit, e.target.value)}
-                placeholder="notes.."
-                className="w-full px-2 border border-gray-300 bg-slate-300 rounded-md"
+                placeholder="note.."
+                className="w-full px-2 border border-gray-300 bg-gray-300 rounded-lg text-slate-500"
                 disabled={!timers[unit].isRunning}
               />
             </div>
@@ -486,12 +505,12 @@ const PlayStationRentalTimer: React.FC = () => {
                 <button
                   key={hours}
                   onClick={() => startCountdown(unit, hours)}
-                  className={`py-1 rounded-md text-sm ${
+                  className={`rounded-md text-sm ${
                     timers[unit].selectedDuration === hours
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-blue-500 text-white'
                       : timers[unit].isRunning
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-amber-600 hover:bg-purple-600 text-white'
+                        : 'bg-gray-300 hover:bg-gray-400 text-gray-500'
                   }`}
                   disabled={timers[unit].isRunning}
                 >
@@ -504,9 +523,9 @@ const PlayStationRentalTimer: React.FC = () => {
               {!timers[unit].isRunning ? (
                 <button
                   onClick={() => startStopwatch(unit)}
-                  className="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-md"
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-1 rounded-md"
                 >
-                  Start
+                  Mulai
                 </button>
               ) : (
                 <button
