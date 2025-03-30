@@ -524,9 +524,9 @@ const PlayStationRentalTimer: React.FC = () => {
               {!timers[unit].isRunning ? (
                 <button
                   onClick={() => startStopwatch(unit)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-5 py-1 rounded-md"
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-2 rounded-md"
                 >
-                  Mulai
+                  Open
                 </button>
               ) : (
                 <button
