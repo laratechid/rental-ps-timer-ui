@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import moment from 'moment';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import useSound from 'use-sound'
+import notificationSound from "../public/sound/notification.mp3"
 
 type Unit = '41' | '42' | '31' | '32' | '33';
 
@@ -23,8 +25,6 @@ interface TimerState {
   note: string;
   fixedDuration?: string; // New field for fixed duration text
 }
-
-const beepSound = new Audio('https://assets.mixkit.co/sfx/preview/mixkit-alarm-digital-clock-beep-989.mp3');
 
 const PRICE_TIERS: Record<Unit, PriceTier[]> = {
   '41': [
@@ -200,6 +200,7 @@ const PRICE_TIERS: Record<Unit, PriceTier[]> = {
 };
 
 const PlayStationRentalTimer: React.FC = () => {
+  const [playSound] = useSound(notificationSound)
   const [timers, setTimers] = useState<Record<Unit, TimerState>>(() => {
     const initialTimerState: TimerState = {
       isRunning: false,
@@ -267,7 +268,7 @@ const PlayStationRentalTimer: React.FC = () => {
           }
           
           if (timer.isRunning && timer.durationHours) {
-            beepSound.play().catch(e => console.error('Error playing sound:', e));
+            playSound()
             
             const notificationId = notificationIdRef.current++;
             const price = getPriceForDuration(unit, timer.durationHours);
