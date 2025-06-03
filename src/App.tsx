@@ -222,8 +222,8 @@ const CANTEEN_ITEMS: CanteenItem[] = [
   { name: "Jasjus", price: 3000 },
   { name: "Sisri", price: 3000 },
   { name: "Frenta", price: 3000 },
-  { name: "Indomie", price: 3000 },
-  { name: "Indomie Double", price: 3000 },
+  { name: "Indomie", price: 6000 },
+  { name: "Indomie Double", price: 10000 },
 ];
 
 const PlayStationRentalTimer: React.FC = () => {
