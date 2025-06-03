@@ -1,10 +1,9 @@
 ## Overview
-
 **Rental PS Timer UI** is a UI built with React TS
 
-- ****Language****: Node v22.16
+- **Language**: Node v22.16
 
-**## Installation**
+## Installation
 
 Install dependencies:
    ```sh
@@ -15,8 +14,7 @@ Set up environment variables (e.g., `.env` file):
    create .env and put your config base on .env.example
    ```
 
-**## Run Service**
-Run service watch mode:
+## Run Service
    ```sh
    ## watch mode
    npm run dev
