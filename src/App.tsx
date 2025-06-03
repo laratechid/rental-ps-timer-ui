@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import moment from 'moment';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-import useSound from 'use-sound'
-import notificationSound from "../public/sound/notification.mp3"
+import useSound from 'use-sound';
+import notificationSound from "../src/sound/notification.mp3";
 
 type Unit = '41' | '42' | '31' | '32' | '33';
 
@@ -23,7 +23,12 @@ interface TimerState {
   durationHours?: number;
   selectedDuration?: number;
   note: string;
-  fixedDuration?: string; // New field for fixed duration text
+  fixedDuration?: string;
+}
+
+interface CanteenItem {
+  name: string;
+  price: number;
 }
 
 const PRICE_TIERS: Record<Unit, PriceTier[]> = {
@@ -209,8 +214,20 @@ const PRICE_TIERS: Record<Unit, PriceTier[]> = {
   ]
 };
 
+const CANTEEN_ITEMS: CanteenItem[] = [
+  { name: "Kopi", price: 4000 },
+  { name: "Nutrisari", price: 4000 },
+  { name: "Segar Sari", price: 4000 },
+  { name: "Marimas", price: 3000 },
+  { name: "Jasjus", price: 3000 },
+  { name: "Sisri", price: 3000 },
+  { name: "Frenta", price: 3000 },
+  { name: "Indomie", price: 3000 },
+  { name: "Indomie Double", price: 3000 },
+];
+
 const PlayStationRentalTimer: React.FC = () => {
-  const [playSound] = useSound(notificationSound)
+  const [playSound] = useSound(notificationSound);
   const [timers, setTimers] = useState<Record<Unit, TimerState>>(() => {
     const initialTimerState: TimerState = {
       isRunning: false,
@@ -232,6 +249,7 @@ const PlayStationRentalTimer: React.FC = () => {
     };
   });
 
+  const [selectedItems, setSelectedItems] = useState<CanteenItem[]>([]);
   const intervalRefs = useRef<Record<Unit, number | null>>({
     '41': null,
     '42': null,
@@ -464,16 +482,44 @@ const PlayStationRentalTimer: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    return () => {
-      Object.entries(intervalRefs.current).forEach(([unit, interval]) => {
-        if (interval) {
-          window.clearInterval(interval);
-          intervalRefs.current[unit as Unit] = null;
+  const handleAddItem = (item: CanteenItem) => {
+    setSelectedItems(prev => [...prev, item]);
+  };
+
+  const handleRemoveItem = (index: number) => {
+    setSelectedItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const submitCanteenOrder = async () => {
+    if (selectedItems.length === 0) return;
+
+    try {
+      for (const item of selectedItems) {
+        const payload = {
+          item: item.name,
+          grandTotal: item.price
+        };
+
+        const response = await fetch('http://localhost:8900/canteen/store', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to submit canteen order');
         }
-      });
-    };
-  }, []);
+      }
+
+      toast.success("Canteen order submitted successfully!");
+      setSelectedItems([]);
+    } catch (error) {
+      console.error('Error submitting canteen order:', error);
+      toast.error("Failed to submit canteen order");
+    }
+  };
 
   return (
     <div className="min-h-screen p-4 m-0">
@@ -488,10 +534,13 @@ const PlayStationRentalTimer: React.FC = () => {
       
       <h1 className="text-2xl font-bold text-center mb-6">TIMER LTS GAME</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {(Object.keys(timers) as Unit[]).map((unit) => (
-          <div key={unit} className="bg-white rounded-xl shadow-md overflow-hidden p-6">
-            <h2 className="text-6xl font-bold text-center text-slate-500 mb-1">{unit}</h2>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* PlayStation Rental Timers */}
+        <div className="lg:col-span-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(Object.keys(timers) as Unit[]).map((unit) => (
+              <div key={unit} className="bg-white rounded-xl shadow-md overflow-hidden p-6">
+                            <h2 className="text-6xl font-bold text-center text-slate-500 mb-1">{unit}</h2>
             
             <div className="mb-4 text-center">
               <div className="text-xl font-bold mb-2 text-slate-500">{timers[unit].displayTime}</div>
@@ -547,8 +596,75 @@ const PlayStationRentalTimer: React.FC = () => {
                 </button>
               )}
             </div>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+
+        {/* Canteen Items Section */}
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <h2 className="text-xl text-slate-500 font-bold text-center mb-4">Canteen</h2>
+          
+          <div className="space-y-2 mb-4">
+            {CANTEEN_ITEMS.map((item, index) => (
+              <div key={index} className="flex justify-between items-center p-2 border rounded">
+                <span><p className='text-slate-500'>{item.name}</p></span>
+                <div className="flex items-center">
+                  <span className="mr-2"><p className='text-slate-500'>Rp {item.price.toLocaleString('id-ID')} </p></span>
+                  <button 
+                    onClick={() => handleAddItem(item)}
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Selected Items */}
+          <div className="mb-4">
+            <h3 className="text-slate-500 font-semibold mb-2">Selected Items:</h3>
+            {selectedItems.length === 0 ? (
+              <p className="text-gray-500 text-sm">No items selected</p>
+            ) : (
+              <ul className="space-y-1">
+                {selectedItems.map((item, index) => (
+                  <li key={index} className="flex justify-between items-center">
+                    <span><p className='text-slate-500'>{item.name}</p></span>
+                    <div className="flex items-center">
+                      <span className="mr-2"><p className='text-slate-500'>Rp {item.price.toLocaleString('id-ID')}</p></span>
+                      <button 
+                        onClick={() => handleRemoveItem(index)}
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Total and Submit */}
+          {selectedItems.length > 0 && (
+            <div className="border-t pt-3">
+              <div className="flex justify-between font-semibold mb-3">
+                <span>Total:</span>
+                <span>
+                  <p className='text-slate-500'>Rp {selectedItems.reduce((sum, item) => sum + item.price, 0).toLocaleString('id-ID')}</p>
+                </span>
+              </div>
+              <button
+                onClick={submitCanteenOrder}
+                className="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded-md"
+              >
+                Submit Order
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
