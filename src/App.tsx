@@ -4,6 +4,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import useSound from 'use-sound';
 import notificationSound from "../src/sound/notification.mp3";
+import { env } from './config/env';
 
 type Unit = '41' | '42' | '31' | '32' | '33';
 
@@ -451,7 +452,7 @@ const PlayStationRentalTimer: React.FC = () => {
     };
 
     try {
-      const response = await fetch('http://localhost:8900/rent/store', {
+      const response = await fetch(`${env.VITE_API_BASE_URL}/rent/store`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -500,7 +501,7 @@ const PlayStationRentalTimer: React.FC = () => {
           grandTotal: item.price
         };
 
-        const response = await fetch('http://localhost:8900/canteen/store', {
+        const response = await fetch(`${env.VITE_API_BASE_URL}/canteen/store`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
