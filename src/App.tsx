@@ -217,8 +217,8 @@ const PRICE_TIERS: Record<Unit, PriceTier[]> = {
 
 const CANTEEN_ITEMS: CanteenItem[] = [
   { name: "Kopi", price: 4000 },
-  { name: "Nutrisari", price: 4000 },
-  { name: "Segar Sari", price: 4000 },
+  { name: "NutriSari", price: 4000 },
+  { name: "SegarSari", price: 4000 },
   { name: "Marimas", price: 3000 },
   { name: "Jasjus", price: 3000 },
   { name: "Sisri", price: 3000 },
